@@ -21,9 +21,6 @@ class MotionPlanner():
 
     
     def find_obstacles(self):
-        # load env
-        
-        #gray_image = cv2.cvtColor(self._image, cv2.COLOR_BGR2GRAY)
 
         hsv_image = cv2.cvtColor(self._image, cv2.COLOR_BGR2HSV)
 
@@ -55,7 +52,6 @@ class MotionPlanner():
                 for x in range(x_b, x_b + w_b):
                     grid[y, x] = 1 
 
-        # Display the grid as an image
         return grid
 
     def a_star(self, start, end):

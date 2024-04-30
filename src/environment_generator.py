@@ -5,9 +5,6 @@ from random import choice, randint
 from io import BytesIO
 import PIL.Image
 import cv2
-from matplotlib.colors import ListedColormap
-
-# GLOBAL VARIABLES
 
 class Environment():
     def __init__(self, screen_height, screen_width, number_obstacles):
@@ -66,6 +63,7 @@ class Environment():
         maze[0, :] = maze[-1, :] = 1
         maze[:, 0] = maze[:, -1] = 1
 
+        # Maze Generation
         for _ in range(density):
             x, y = np.random.randint(0, size[1] // 2) * 2, np.random.randint(0, size[0] // 2) * 2
             maze[y, x] = 1
@@ -91,18 +89,16 @@ class Environment():
         ax.set_ylim(0, size[0])
         ax.set_aspect('equal')
         ax.axis('off')
-        cmap = ListedColormap(['white', '#0000FF'])  # HTML code for blue (0, 0, 255)
+        cmap = ListedColormap(['white', '#0000FF'])
         ax.imshow(maze, cmap=cmap)
 
-     # Save the image into a buffer
         buf = BytesIO()
         plt.savefig(buf, format='png', bbox_inches='tight', pad_inches=0)
         plt.close(fig)
         buf.seek(0)
 
-    # Load the image from the buffer and convert it to a NumPy array
         image = PIL.Image.open(buf)
         image_arr = np.array(image)
-        image_arr = image_arr[:, :, ::-1]  # Convert RGB to BGR to match the provided generator's color format
+        image_arr = image_arr[:, :, ::-1] 
 
         return image_arr
