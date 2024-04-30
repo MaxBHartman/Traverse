@@ -7,6 +7,7 @@ import PIL.Image
 import cv2
 from heapq import heappop, heappush
 from collections import deque, defaultdict
+import time
 
 COLORS = [(0, 0, 225), (0, 155, 155), (0, 225, 0), (0, 155, 0)]
 
@@ -57,7 +58,7 @@ class MotionPlanner():
         # Display the grid as an image
         return grid
 
-    def a_star_algorithm(self, start, end):
+    def a_star(self, start, end):
         grid = self.create_grid(obstacles=self._obstacles, grid_size=self._image.shape[:2])
         neighbors = [(0, 1), (1, 0), (0, -1), (-1, 0), (1, 1), (-1, -1), (1, -1), (-1, 1)]
         close_set = set()
@@ -103,9 +104,9 @@ class MotionPlanner():
                     fscore[neighbor] = tentative_g_score + self.euclidean_distance(neighbor, end)
                     heappush(oheap, (fscore[neighbor], neighbor))
 
-        return False
+        return False, np.inf
     
-    def dijkstra_algorithm(self, start, end):
+    def dijkstra(self, start, end):
         grid = self.create_grid(obstacles=self._obstacles, grid_size=self._image.shape[:2])
         neighbors = [(0, 1), (1, 0), (0, -1), (-1, 0), (1, 1), (-1, -1), (1, -1), (-1, 1)]
         close_set = set()
@@ -147,66 +148,75 @@ class MotionPlanner():
                     gscore[neighbor] = tentative_g_score
                     heappush(oheap, (gscore[neighbor], neighbor))
 
-        return False
+        return False, np.inf
 
 
     def bfs(self, start, goal):
-        # Create grid from the obstacle list and image size
+        # find viable nodes in graph
         grid = self.create_grid(self._obstacles, self._image.shape[:2])
         queue = deque([(start, [start], 0)])
         visited = set()
-        directions = [(0, 1), (1, 0), (0, -1), (-1, 0), (1, 1), (-1, -1), (1, -1), (-1, 1)]  # Right, Down, Left, Up
+        directions = [(0, 1), (1, 0), (0, -1), (-1, 0), (1, 1), (-1, -1), (1, -1), (-1, 1)] 
 
         while queue:
             (x, y), path, distance = queue.popleft()
             if (x, y) == goal:
                 return path, distance
-            
-            # Explore the neighbors in the grid within the boundary
+            # Explore
             for dx, dy in directions:
                 nx, ny = x + dx, y + dy
-                if 0 <= nx < grid.shape[1] and 0 <= ny < grid.shape[0]:  # Check grid boundaries
-                    if grid[ny][nx] == 0 and (nx, ny) not in visited:  # Check if the cell is open and not visited
+                if 0 <= nx < grid.shape[1] and 0 <= ny < grid.shape[0]: 
+                    if grid[ny][nx] == 0 and (nx, ny) not in visited: 
                         visited.add((nx, ny))
                         queue.append(((nx, ny), path + [(nx, ny)], distance + 1))
         
-        return False
+        return False, np.inf
     
-    def plot_path_on_image(self, paths, line_thickness=2, line_color=(0, 0, 225)):
-    # Create a copy of the image to draw the path and obstacles
+    def dfs(self, start, goal):
+        grid = self.create_grid(self._obstacles, self._image.shape[:2])
+        stack = [(start, [start], 0)]  # Use a list as a stack
+        visited = set()
+        directions = [(0, 1), (1, 0), (0, -1), (-1, 0), (1, 1), (-1, -1), (1, -1), (-1, 1)]
+
+        while stack:
+            (x, y), path, distance = stack.pop()  # Pop from the stack
+            if (x, y) == goal:
+                return path, distance
+        
+            for dx, dy in directions:
+                nx, ny = x + dx, y + dy
+                if 0 <= nx < grid.shape[1] and 0 <= ny < grid.shape[0]: 
+                    if grid[ny][nx] == 0 and (nx, ny) not in visited:
+                        visited.add((nx, ny))
+                        stack.append(((nx, ny), path + [(nx, ny)], distance + 1))
+        
+        return False, np.inf
+    
+    def plot_path_on_image(self, paths, line_thickness=2, line_color=(0, 0, 225), animation_delay=0.0005):
         image_with_path = self._image.copy()
-
-    # Draw each obstacle on the image
-        for x, y, w, h in self._obstacles:
-            cv2.rectangle(image_with_path, (x, y), (x + w, y + h), (0, 255, 0), 2)  # Green color for obstacles
-
-        legend_pos = (10, 30)  # Starting position for the legend text
-        color_index = 0  # To alternate colors for clarity
-        color_palette = [(0, 0, 255), (255, 255, 0), (255, 0, 255), (0, 255, 255)]  # Predefined colors for paths
-
-        for label, (path, distance) in paths.items():
-        # Set a specific color for each path
-            path_color = color_palette[color_index % len(color_palette)]
-            color_index += 1
-
-            # Draw the path
-            if len(path) > 1:
-                for i in range(1, len(path)):
-                    cv2.line(image_with_path, path[i - 1], path[i], path_color, line_thickness)
-            elif len(path) == 1:
-                cv2.circle(image_with_path, path[0], radius=line_thickness, color=path_color, thickness=-1)
-
-        # Add path label and distance to the legend
-            legend_text = f"{label}: {distance:.2f}"
-            cv2.putText(image_with_path, legend_text, (legend_pos[0], legend_pos[1]), cv2.FONT_HERSHEY_SIMPLEX, 0.5, path_color, 1)
-            legend_pos = (legend_pos[0], legend_pos[1] + 20)  # Move down for the next entry
-
         cv2.circle(image_with_path, self._start, radius=line_thickness, color=(0,155,155), thickness=-1)
         cv2.circle(image_with_path, self._end, radius=line_thickness, color=(155,155,0), thickness=-1)
 
-        cv2.imshow('Path on Image', image_with_path)
+        for x, y, w, h in self._obstacles:
+            cv2.rectangle(image_with_path, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+        max_length = max(len(path[1][0]) for path in paths.items() if path[1][1] != np.inf)
+
+        path_indices = {label: 1 for label in paths}
+
+        while any(index < max_length for index in path_indices.values()):
+         for label, (path, distance) in paths.items():
+                if path_indices[label] < len(path) and distance != np.inf:
+                    cv2.line(image_with_path, path[path_indices[label] - 1], path[path_indices[label]], COLORS[path_indices[label] % len(COLORS)], line_thickness)
+                    path_indices[label] += 1
+
+                cv2.imshow('Path on Image', image_with_path)
+                cv2.waitKey(1)
+                time.sleep(animation_delay)
+
         cv2.waitKey(0)
         cv2.destroyAllWindows()
+
     
     def generate_start_end(self):
         start = (0,0)

@@ -23,11 +23,18 @@ class Environment():
         ax.add_patch(circle)
 
     def create_random_rectangle(self, ax):
-        width = np.random.uniform(0.5, 0.2*self._screen_width)
-        height = np.random.uniform(0.5, 0.2*self._screen_height)
-        x, y = np.random.uniform(0, self._screen_width - width*1.05), np.random.uniform(0, self._screen_height - height*1.05)
-        rectangle = patches.Rectangle((x, y), width, height, color=(1,0,0))
-        ax.add_patch(rectangle)
+        avoid_points = [(0, 0), (200, 200)]
+    
+        while True:
+            width = np.random.uniform(0.5, 0.2 * self._screen_width)
+            height = np.random.uniform(0.5, 0.2 * self._screen_height)
+            x, y = np.random.uniform(0, self._screen_width - width), np.random.uniform(0, self._screen_height - height)
+            rectangle_candidate = patches.Rectangle((x, y), width, height)
+            overlaps = any(rectangle_candidate.contains_point(p) for p in avoid_points)
+            if not overlaps:
+                rectangle = patches.Rectangle((x, y), width, height, color=(1, 0, 0))
+                ax.add_patch(rectangle)
+                break
 
     def generate_shapes_plot(self):
         fig, ax = plt.subplots()
